@@ -1,53 +1,44 @@
 // src/utils/axiosInstance.js
 import axios from "axios";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:8000";
-
 const instance = axios.create({
-    baseURL: API_BASE,
+    baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         "Content-Type": "application/json",
     },
-   
 });
 
-// Attach token from localStorage on each request (safe fallback)
+// Attach token on each request
 instance.interceptors.request.use(
     (config) => {
-        try {
+        if (typeof window !== "undefined") {
             const token = localStorage.getItem("access_token");
             if (token) {
                 config.headers = config.headers || {};
                 config.headers.Authorization = `Bearer ${token}`;
             }
-        } catch (e) {
-            // ignore
         }
         return config;
     },
     (error) => Promise.reject(error)
 );
 
-// Response interceptor (optional: centralize error handling)
+// Optional response interceptor
 instance.interceptors.response.use(
-    (resp) => resp,
-    (error) => {
-        // You can extend: if 401 -> redirect to login, etc.
-        return Promise.reject(error);
-    }
+    (response) => response,
+    (error) => Promise.reject(error)
 );
 
-/**
- * Helper to set token (used after login/signup)
- * and to ensure axios will send Authorization header
- */
+// Helper to set/remove token after login/logout
 export function setAuthToken(token) {
+    if (typeof window === "undefined") return;
+
     if (token) {
         localStorage.setItem("access_token", token);
-        instance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        instance.defaults.headers.common.Authorization = `Bearer ${token}`;
     } else {
         localStorage.removeItem("access_token");
-        delete instance.defaults.headers.common["Authorization"];
+        delete instance.defaults.headers.common.Authorization;
     }
 }
 
