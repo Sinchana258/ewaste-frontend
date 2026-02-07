@@ -64,7 +64,7 @@ const LandingPage = () => {
                         {/* Left - Text + Facts */}
                         <div className="w-full md:w-1/2">
                             <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight mb-4">
-                                ECycle — Smarter, kinder e-waste management
+                                ECycle — Smarter, Kinder E-waste Management
                             </h1>
 
                             <p className="text-lg text-gray-700 mb-6 max-w-xl">

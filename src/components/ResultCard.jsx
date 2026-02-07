@@ -40,7 +40,7 @@ const CATEGORY_DEFS = {
             "This item may contain hazardous materials (batteries, mercury, capacitors, PCBs). Do NOT throw it in regular trash. Use a certified e-waste facility for safe disposal.",
         ctas: [
             { label: "Find Safe Facility", href: "/facility-locator", style: "bg-red-600 text-white" },
-            { label: "Safety Tips", href: "/safety", style: "border border-red-200 text-red-700 bg-white" }
+            { label: "Safety Tips", href: "/education", style: "border border-red-200 text-red-700 bg-white" }
         ],
     },
     reusable: {
@@ -377,7 +377,7 @@ const ResultCard = ({ imageUrl, predictions = [], speed = "", onClear, loading =
 
                             {categoryKey === "hazardous" && (
                                 <button
-                                    onClick={() => window.open("/safety#handling", "_blank")}
+                                    onClick={() => window.open("/education", "_blank")}
                                     className="px-4 py-2 rounded-md text-sm border border-gray-200 bg-white"
                                 >
                                     Handling tips

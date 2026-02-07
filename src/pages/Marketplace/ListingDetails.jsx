@@ -1,10 +1,20 @@
+// src/pages/Marketplace/ListingDetails.jsx
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { fetchListingById } from "../api/listings";
 import { useToast } from "../../context/ToastContext";
+import {
+    FiArrowLeft,
+    FiShoppingCart,
+    FiTag,
+    FiPackage,
+} from "react-icons/fi";
+
+const PRIMARY = "#5a8807";
 
 const ListingDetails = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { showToast } = useToast();
 
     const [listing, setListing] = useState(null);
@@ -76,51 +86,142 @@ const ListingDetails = () => {
         }
     };
 
+    const conditionColor =
+        (condition || "").toLowerCase().includes("working") ||
+            (condition || "").toLowerCase().includes("good")
+            ? "bg-emerald-100 text-emerald-800"
+            : (condition || "").toLowerCase().includes("repair")
+                ? "bg-amber-100 text-amber-800"
+                : "bg-gray-100 text-gray-700";
+
     return (
-        <div className="max-w-5xl mx-auto px-4 py-8">
-            <div className="flex flex-col md:flex-row gap-6">
-                <img
-                    src={
-                        image_url ||
-                        "https://via.placeholder.com/400x300?text=E-waste+Item"
-                    }
-                    alt={title}
-                    className={`w-full md:w-1/2 h-64 object-cover rounded ${stock <= 0 ? "opacity-50" : ""
-                        }`}
-                />
+        <div className="max-w-6xl mx-auto px-4 py-8">
+            {/* Back button */}
+            <button
+                onClick={() => navigate(-1)}
+                className="mb-4 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            >
+                <FiArrowLeft className="w-4 h-4" />
+                Back to marketplace
+            </button>
 
-                <div className="flex-1 space-y-4">
-                    <h1 className="text-2xl font-semibold">{title}</h1>
-                    <p className="text-gray-600">{category}</p>
-                    <p className="font-medium">Condition: {condition}</p>
+            <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+                <div className="flex flex-col md:flex-row">
+                    {/* Image section */}
+                    <div className="md:w-1/2 relative bg-gray-50">
+                        {stock <= 0 && (
+                            <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow">
+                                Out of stock
+                            </div>
+                        )}
 
-                    <p className="text-2xl font-bold text-green-700">₹{price}</p>
+                        <img
+                            src={
+                                image_url ||
+                                "https://via.placeholder.com/600x400?text=E-waste+Item"
+                            }
+                            alt={title}
+                            className={`w-full h-72 md:h-full object-cover ${stock <= 0 ? "opacity-60" : ""
+                                }`}
+                        />
+                    </div>
 
-                    {/* Stock Info */}
-                    {stock <= 0 ? (
-                        <span className="bg-red-600 text-white px-3 py-1 rounded text-sm">
-                            Out of Stock
-                        </span>
-                    ) : (
-                        <span className="text-sm text-gray-700 font-medium">
-                            {stock <= 2
-                                ? `Hurry! Only ${stock} left`
-                                : `In stock: ${stock}`}
-                        </span>
-                    )}
+                    {/* Details section */}
+                    <div className="md:w-1/2 p-6 md:p-8 flex flex-col gap-5">
+                        {/* Title + chips */}
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
+                                {title}
+                            </h1>
 
-                    <button
-                        onClick={handleAddToCart}
-                        disabled={stock <= 0}
-                        className={`w-full md:w-auto px-6 py-2 rounded text-white text-sm ${stock > 0
-                            ? "bg-[#5a8807] hover:brightness-95"
-                            : "bg-gray-400 cursor-not-allowed"
-                            }`}
-                    >
-                        {stock > 0 ? "Add to Cart" : "Unavailable"}
-                    </button>
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                {category && (
+                                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+                                        <FiTag className="w-3 h-3" />
+                                        <span className="font-medium">{category}</span>
+                                    </span>
+                                )}
 
-                    {description && <p className="text-gray-700">{description}</p>}
+                                {condition && (
+                                    <span
+                                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${conditionColor}`}
+                                    >
+                                        <FiPackage className="w-3 h-3" />
+                                        Condition: {condition}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Price + stock */}
+                        <div className="flex flex-wrap items-end justify-between gap-3 border-y border-gray-100 py-3">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                                    Price
+                                </p>
+                                <p className="text-2xl font-bold text-green-700">
+                                    ₹{Number(price || 0).toLocaleString("en-IN")}
+                                </p>
+                            </div>
+
+                            <div className="text-right">
+                                <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                                    Availability
+                                </p>
+                                {stock <= 0 ? (
+                                    <p className="text-sm font-semibold text-red-600">
+                                        Currently unavailable
+                                    </p>
+                                ) : stock <= 2 ? (
+                                    <p className="text-sm font-semibold text-amber-700">
+                                        Hurry! Only {stock} left
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-gray-700">In stock: {stock}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <h2 className="text-sm font-semibold text-gray-800 mb-1">
+                                Item details
+                            </h2>
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                                {description ||
+                                    "This reusable e-waste item has been listed on the marketplace to encourage reuse instead of disposal. Please review the condition before purchase."}
+                            </p>
+                        </div>
+
+                        {/* Info note */}
+                        <div className="bg-[#F7FBEE] border border-[#E1F0C8] rounded-2xl px-4 py-3 text-xs text-gray-700">
+                            Buying pre-used electronics helps reduce e-waste going to landfills
+                            and supports a circular economy. 🌱
+                        </div>
+
+                        {/* CTA buttons */}
+                        <div className="mt-2 flex flex-col sm:flex-row gap-3">
+                            <button
+                                onClick={handleAddToCart}
+                                disabled={stock <= 0}
+                                className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 rounded-full text-sm font-medium text-white shadow-md ${stock > 0
+                                        ? "hover:brightness-95"
+                                        : "opacity-60 cursor-not-allowed"
+                                    }`}
+                                style={{ backgroundColor: PRIMARY }}
+                            >
+                                <FiShoppingCart className="w-4 h-4" />
+                                {stock > 0 ? "Add to Cart" : "Unavailable"}
+                            </button>
+
+                            <button
+                                onClick={() => navigate("/cart")}
+                                className="inline-flex items-center justify-center w-full sm:w-auto px-6 py-2.5 rounded-full text-sm font-medium border border-gray-200 text-gray-800 hover:bg-gray-50"
+                            >
+                                View Cart
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

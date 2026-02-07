@@ -89,7 +89,7 @@ const Recycle = () => {
         {/* Title Section */}
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4" style={{ color: PRIMARY }}>
-            Sustainable Electronics Recycling Solutions
+            Schedule A PickUp With ECycle Recycling Solutions
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Choose the right recycling option for your devices and support a

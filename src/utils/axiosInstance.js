@@ -8,8 +8,7 @@ const instance = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
-    // you can set a reasonable timeout if you want
-    // timeout: 15000,
+   
 });
 
 // Attach token from localStorage on each request (safe fallback)

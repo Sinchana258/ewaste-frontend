@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createOrder } from "../api/orders";
+import { createRazorpayOrder } from "../api/payments"; 
 
 const CartPage = () => {
     const [cartItems, setCartItems] = useState([]);
@@ -56,7 +56,7 @@ const CartPage = () => {
 
     const handlePlaceOrder = async () => {
         if (!userEmail) {
-            alert("Please enter your email for booking confirmation.");
+            alert("Please enter your email for order confirmation.");
             return;
         }
         if (cartItems.length === 0) {
@@ -64,34 +64,87 @@ const CartPage = () => {
             return;
         }
 
-        const ok = window.confirm(
-            "Confirm booking these items? (No online payment, just a booking record)"
-        );
-        if (!ok) return;
+        if (!window.Razorpay) {
+            alert("Razorpay SDK not loaded. Please check your network or try again.");
+            return;
+        }
 
         try {
             setPlacing(true);
-            const order = await createOrder({ userEmail, items: cartItems });
 
-            // save email for future
-            localStorage.setItem("ewaste_user_email", userEmail);
-
-            // clear cart
-            syncAndSet([]);
-
-            // Go to success page
-            navigate("/order-success", {
-                state: {
-                    orderId: order.id,
-                    amount: order.total_amount,
-                    title: `Order with ${order.items.length} item(s)`,
-                    userEmail: order.user_email,
-                },
+            //  Create Razorpay order on backend
+            const rpOrder = await createRazorpayOrder({
+                amount: Math.round(totalAmount), // in rupees
+                email: userEmail,
             });
+
+            //  Configure Razorpay Checkout
+            const options = {
+                key: rpOrder.razorpay_key_id,
+                amount: rpOrder.amount, // in paise
+                currency: rpOrder.currency,
+                name: "Ecycle Marketplace",
+                description: "E-waste purchase",
+                order_id: rpOrder.id,
+                prefill: {
+                    email: userEmail,
+                },
+                theme: {
+                    color: "#5a8807",
+                },
+                handler: async function (response) {
+                    //  On successful payment: create order in our backend
+                    try {
+                        const orderPayload = {
+                            // match the OLD working shape
+                            userEmail,          // same camelCase you used earlier
+                            items: cartItems,   // send items exactly like before
+                            paymentStatus: "paid",
+                            paymentProvider: "razorpay",
+                            razorpayPaymentId: response.razorpay_payment_id,
+                        };
+
+                        const created = await createOrder(orderPayload);
+
+
+                        // Save email for future
+                        localStorage.setItem("ewaste_user_email", userEmail);
+
+                        // Clear cart
+                        syncAndSet([]);
+
+                        // Go to success page
+                        navigate("/order-success", {
+                            state: {
+                                orderId: created.id,
+                                amount: created.total_amount,
+                                title: `Order with ${created.items?.length || cartItems.length} item(s)`,
+                                userEmail: created.user_email,
+                            },
+                        });
+                    } catch (err) {
+                        console.error("Failed to create order after payment:", err);
+                        alert(
+                            "Payment captured, but failed to create order record. Please contact admin with payment ID."
+                        );
+                    } finally {
+                        setPlacing(false);
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        setPlacing(false);
+                        alert("Payment popup closed.");
+                    },
+                },
+            };
+
+            // 4️⃣ Open Razorpay
+            const rzp = new window.Razorpay(options);
+            rzp.open();
         } catch (err) {
-            console.error("Failed to place order", err);
-            alert("Something went wrong while placing your order.");
-        } finally {
+            console.error("Failed to start payment:", err);
+            alert("Failed to start payment. Please try again.");
             setPlacing(false);
         }
     };
@@ -156,7 +209,7 @@ const CartPage = () => {
 
                         <div>
                             <label className="block text-sm font-medium mb-1">
-                                Email for booking confirmation
+                                Email for order confirmation
                             </label>
                             <input
                                 type="email"
@@ -172,7 +225,7 @@ const CartPage = () => {
                             disabled={placing}
                             className="bg-[#5a8807] text-white px-4 py-2 rounded text-sm hover:brightness-95 disabled:opacity-60"
                         >
-                            {placing ? "Placing order..." : "Place Order"}
+                            {placing ? "Processing payment..." : "Pay & Place Order"}
                         </button>
 
                         <button
@@ -183,8 +236,8 @@ const CartPage = () => {
                         </button>
 
                         <p className="text-xs text-gray-500 mt-2">
-                            Note: Online payment is not integrated. This creates a booking
-                            record in the system using your email.
+                            Payments are processed securely via Razorpay (Test Mode). Use
+                            Razorpay&apos;s test cards/UPI for demo.
                         </p>
                     </div>
                 </>

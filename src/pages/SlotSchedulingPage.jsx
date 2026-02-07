@@ -9,11 +9,7 @@ import {
     FaTv,
 } from "react-icons/fa";
 
-/**
- * Decorative asset you uploaded — using local path provided.
- * The environment will translate this local path to a served URL.
- * (developer note: file path from conversation)
- */
+
 import LOGO_URL from "../assets/Elogo.png"
 const SlotSchedulingPage = () => {
     const categories = [

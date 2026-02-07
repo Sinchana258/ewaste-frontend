@@ -2,11 +2,10 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import axios from "axios";
-import LOGO_URL from "../assets/Elogo.png"
+import LOGO_URL from "../assets/Elogo.png";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 const USE_SERVER = process.env.REACT_APP_USE_SERVER_VALUATION === "true";
-
 
 const categories = [
     { value: "phone", label: "Mobile Phone" },
@@ -24,6 +23,16 @@ const conditions = [
     { value: "dead", label: "Not Working / Dead" },
 ];
 
+const deviceCategories = [
+    "Laptop",
+    "Smartphone",
+    "Tablet",
+    "Television",
+    "Desktop PC",
+    "Accessories",
+    "Home Appliance",
+    "Other",
+];
 
 const currency = (v) =>
     new Intl.NumberFormat("en-IN", {
@@ -37,31 +46,31 @@ const currency = (v) =>
  */
 const BASE_PRICES = {
     phone: 15000,
-    laptop: 45000,
+    laptop: 40000,
     tablet: 20000,
-    tv: 30000,
+    tv: 25000,
     desktop: 25000,
-    other: 5000,
+    other: 1000,
 };
 
 /**
  * Depreciation rate per year, by category.
  */
 const YEARLY_DEP_RATE = {
-    phone: 0.72,
-    laptop: 0.8,
-    tablet: 0.76,
-    tv: 0.78,
-    desktop: 0.8,
-    other: 0.85,
+    phone: 0.68,
+    laptop: 0.68,
+    tablet: 0.65,
+    tv: 0.65,
+    desktop: 0.6,
+    other: 0.65,
 };
 
 /**
  * Condition multipliers.
  */
 const CONDITION_MULTIPLIER = {
-    working: 1.0,
-    minor_issues: 0.7,
+    working: 0.85,
+    minor_issues: 0.65,
     major_issues: 0.35,
     dead: 0.0,
 };
@@ -70,8 +79,8 @@ const CONDITION_MULTIPLIER = {
  * Scrap fractions.
  */
 const SCRAP_FRACTION = {
-    phone: 0.06,
-    laptop: 0.12,
+    phone: 0.05,
+    laptop: 0.08,
     tablet: 0.05,
     tv: 0.08,
     desktop: 0.09,
@@ -95,7 +104,6 @@ const BRAND_PREMIUM = {
     apple_mac: 1.18,
 };
 
-
 function brandKeyFrom(str = "") {
     if (!str) return "default";
     const s = str.toLowerCase();
@@ -103,7 +111,8 @@ function brandKeyFrom(str = "") {
     if (s.includes("mac") || s.includes("macbook")) return "apple_mac";
     if (s.includes("apple")) return "apple";
     if (s.includes("samsung")) return "samsung";
-    if (s.includes("xiaomi") || s.includes("redmi") || s.includes("mi")) return "xiaomi";
+    if (s.includes("xiaomi") || s.includes("redmi") || s.includes("mi"))
+        return "xiaomi";
     if (s.includes("oneplus")) return "oneplus";
     if (s.includes("dell")) return "dell";
     if (s.includes("hp")) return "hp";
@@ -149,15 +158,20 @@ function estimateClient(items = []) {
         const brandMul = BRAND_PREMIUM[brandKey] ?? BRAND_PREMIUM.default;
 
         // resale per unit (min..max)
-        const resaleNominal = afterAge * (CONDITION_MULTIPLIER[condition] ?? 1) * brandMul;
+        const resaleNominal =
+            afterAge * (CONDITION_MULTIPLIER[condition] ?? 1) * brandMul;
         const resaleMin = Math.max(0, resaleNominal * 0.88);
         const resaleMax = resaleNominal * 1.12;
 
         // scrap per unit
-        const scrapPerUnit = Math.max(0, base * (SCRAP_FRACTION[category] ?? 0.05));
+        const scrapPerUnit = Math.max(
+            0,
+            base * (SCRAP_FRACTION[category] ?? 0.05)
+        );
 
         // decide resale vs scrap
-        const useResale = condition !== "dead" && resaleNominal > scrapPerUnit * 1.2;
+        const useResale =
+            condition !== "dead" && resaleNominal > scrapPerUnit * 1.2;
 
         const estimated_min_total = qty * (useResale ? resaleMin : scrapPerUnit);
         const estimated_max_total = qty * (useResale ? resaleMax : scrapPerUnit);
@@ -199,6 +213,32 @@ function estimateClient(items = []) {
     return out;
 }
 
+// Helpers to get labels
+const getCategoryLabel = (value) =>
+    categories.find((c) => c.value === value)?.label || value;
+
+const getConditionLabel = (value) =>
+    conditions.find((c) => c.value === value)?.label || value;
+
+// Map from estimator category to a nice device category label
+const mapCategoryToDeviceCategory = (cat) => {
+    switch ((cat || "").toLowerCase()) {
+        case "phone":
+            return "Smartphone";
+        case "laptop":
+            return "Laptop";
+        case "tablet":
+            return "Tablet";
+        case "tv":
+            return "Television";
+        case "desktop":
+            return "Desktop PC";
+        case "other":
+        default:
+            return "Other";
+    }
+};
+
 export default function ValueEstimatorPage() {
     const [form, setForm] = useState({
         category: "phone",
@@ -206,14 +246,15 @@ export default function ValueEstimatorPage() {
         age_years: 1,
         brand: "",
         quantity: 1,
+        device_category: "Smartphone",
+        custom_device_category: "",
+        model: "",
     });
-
 
     const navigate = useNavigate();
 
     const [classifiedImage, setClassifiedImage] = useState(null);
     const [classifiedLabel, setClassifiedLabel] = useState("");
-
 
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
@@ -253,19 +294,22 @@ export default function ValueEstimatorPage() {
 
         setLoading(true);
 
+        // Combine brand + model for better valuation heuristic
+        const brandCombined = [form.brand, form.model].filter(Boolean).join(" ");
+
+        // Common estimator item
+        const estItem = {
+            category: form.category,
+            condition: form.condition,
+            age_years: form.age_years,
+            brand: brandCombined || null,
+            quantity: form.quantity,
+        };
+
         try {
             if (USE_SERVER) {
-                // IMPORTANT: this matches FastAPI schema: ValueEstimateRequest(items=[...])
                 const payload = {
-                    items: [
-                        {
-                            category: form.category,
-                            condition: form.condition,
-                            age_years: form.age_years,
-                            brand: form.brand || null,
-                            quantity: form.quantity,
-                        },
-                    ],
+                    items: [estItem],
                 };
 
                 const resp = await axios.post(
@@ -274,19 +318,17 @@ export default function ValueEstimatorPage() {
                     { timeout: 15000 }
                 );
 
-                // expected response: { total_min_value, total_max_value, items: [...] }
                 setResult(resp.data);
-                sessionStorage.setItem("valueEstimatorResult", JSON.stringify(resp.data));
+                sessionStorage.setItem(
+                    "valueEstimatorResult",
+                    JSON.stringify(resp.data)
+                );
                 sessionStorage.setItem("valueEstimatorForm", JSON.stringify(form));
-
             } else {
-                const r = estimateClient([form]);
+                const r = estimateClient([estItem]);
                 setResult(r);
-
-                // Save full state so page can restore later
                 sessionStorage.setItem("valueEstimatorResult", JSON.stringify(r));
                 sessionStorage.setItem("valueEstimatorForm", JSON.stringify(form));
-
             }
         } catch (err) {
             console.error("valuation error:", err);
@@ -295,7 +337,7 @@ export default function ValueEstimatorPage() {
             );
 
             try {
-                const r = estimateClient([form]);
+                const r = estimateClient([estItem]);
                 setResult(r);
             } catch (fallbackErr) {
                 console.error("fallback failed:", fallbackErr);
@@ -305,7 +347,6 @@ export default function ValueEstimatorPage() {
             setLoading(false);
         }
     }
-
 
     function detectCategory(text = "") {
         const s = text.toLowerCase();
@@ -317,16 +358,17 @@ export default function ValueEstimatorPage() {
         return "other";
     }
 
-
-
     useEffect(() => {
+        // Restore previous session (form + result)
         const savedForm = sessionStorage.getItem("valueEstimatorForm");
         const savedResult = sessionStorage.getItem("valueEstimatorResult");
         if (savedForm) setForm(JSON.parse(savedForm));
         if (savedResult) setResult(JSON.parse(savedResult));
 
+        // Prefill from classifier
         const classified = sessionStorage.getItem("classifiedItem");
-        const fromClassifier = sessionStorage.getItem("fromClassifier") === "true";
+        const fromClassifier =
+            sessionStorage.getItem("fromClassifier") === "true";
 
         if (classified && fromClassifier) {
             const { label, imageUrl } = JSON.parse(classified);
@@ -334,10 +376,15 @@ export default function ValueEstimatorPage() {
             setClassifiedImage(imageUrl);
             setClassifiedLabel(label);
 
-            setForm(prev => ({
+            const catVal = detectCategory(label);
+            const deviceCat = mapCategoryToDeviceCategory(catVal);
+
+            setForm((prev) => ({
                 ...prev,
-                brand: label?.split(" ")[0] || "",
-                category: detectCategory(label),
+                brand: label?.split(" ")[0] || prev.brand,
+                model: label || prev.model,
+                category: catVal,
+                device_category: deviceCat,
                 quantity: 1,
                 condition: "working",
             }));
@@ -345,10 +392,7 @@ export default function ValueEstimatorPage() {
             setShowPrefilledBanner(true);
             sessionStorage.removeItem("fromClassifier");
         }
-
     }, []);
-
-
 
     return (
         <div className="min-h-screen bg-[#E2F0C9] pt-8 pb-12 px-4">
@@ -371,9 +415,10 @@ export default function ValueEstimatorPage() {
                         </p>
                     </div>
                 </div>
+
                 {showPrefilledBanner && (
-                    <p className="text-blue-700 bg-blue-50 p-2 rounded text-sm mb-3">
-                        Auto-filled based on classification result
+                    <p className="text-blue-700 bg-blue-50 p-2 rounded text-sm mb-3 mt-3">
+                        Auto-filled based on classification result ✔️
                     </p>
                 )}
 
@@ -468,7 +513,7 @@ export default function ValueEstimatorPage() {
                     </div>
 
                     {/* Brand */}
-                    <div className="flex flex-col md:col-span-2">
+                    <div className="flex flex-col">
                         <label
                             htmlFor="brand"
                             className="text-sm font-medium text-gray-700 mb-1"
@@ -488,6 +533,76 @@ export default function ValueEstimatorPage() {
                             Brand improves the estimate (premium/discount applied).
                         </p>
                     </div>
+
+                    {/* Model */}
+                    <div className="flex flex-col">
+                        <label
+                            htmlFor="model"
+                            className="text-sm font-medium text-gray-700 mb-1"
+                        >
+                            Model / Series (optional)
+                        </label>
+                        <input
+                            id="model"
+                            name="model"
+                            type="text"
+                            placeholder="e.g., Inspiron 3511, Galaxy A52"
+                            value={form.model}
+                            onChange={handleChange}
+                            className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5a8807]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Used together with brand to refine estimation.
+                        </p>
+                    </div>
+
+                    {/* Device category */}
+                    <div className="flex flex-col">
+                        <label
+                            htmlFor="device_category"
+                            className="text-sm font-medium text-gray-700 mb-1"
+                        >
+                            Device Category (for listing)
+                        </label>
+                        <select
+                            id="device_category"
+                            name="device_category"
+                            value={form.device_category}
+                            onChange={handleChange}
+                            className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5a8807]"
+                        >
+                            {deviceCategories.map((dc) => (
+                                <option key={dc} value={dc}>
+                                    {dc}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                            This doesn&apos;t change value math, but helps when posting to
+                            marketplace.
+                        </p>
+                    </div>
+
+                    {/* Custom device category (if Other) */}
+                    {form.device_category === "Other" && (
+                        <div className="flex flex-col">
+                            <label
+                                htmlFor="custom_device_category"
+                                className="text-sm font-medium text-gray-700 mb-1"
+                            >
+                                Custom Device Category
+                            </label>
+                            <input
+                                id="custom_device_category"
+                                name="custom_device_category"
+                                type="text"
+                                placeholder="e.g., Industrial control unit"
+                                value={form.custom_device_category}
+                                onChange={handleChange}
+                                className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5a8807]"
+                            />
+                        </div>
+                    )}
 
                     <div className="md:col-span-2 mt-2">
                         <button
@@ -521,8 +636,6 @@ export default function ValueEstimatorPage() {
 
                 {/* Results */}
                 {result && (
-
-
                     <section
                         className="mt-6 bg-[#F4F8E8] rounded-2xl p-4 md:p-5"
                         aria-live="polite"
@@ -541,7 +654,9 @@ export default function ValueEstimatorPage() {
                                     alt="Classified item"
                                     className="w-32 h-32 object-cover rounded-xl shadow"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Image from Classification</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Image from Classification
+                                </p>
                             </div>
                         )}
 
@@ -567,10 +682,8 @@ export default function ValueEstimatorPage() {
                                                 {it.category} × {it.quantity}
                                             </div>
                                             <div className="text-xs text-gray-500">
-                                                {it.brand
-                                                    ? `Brand: ${it.brand}`
-                                                    : "Brand: -"}{" "}
-                                                • Age: {it.age_years} yr • Condition:{" "}
+                                                {it.brand ? `Brand: ${it.brand}` : "Brand: -"} • Age:{" "}
+                                                {it.age_years} yr • Condition:{" "}
                                                 {String(it.condition).replace("_", " ")}
                                             </div>
                                         </div>
@@ -581,8 +694,7 @@ export default function ValueEstimatorPage() {
                                                 {currency(it.estimated_max_total)}
                                             </div>
                                             <div className="text-xs text-gray-500">
-                                                per unit:{" "}
-                                                {currency(it.resale_min_per_unit)} –{" "}
+                                                per unit: {currency(it.resale_min_per_unit)} –{" "}
                                                 {currency(it.resale_max_per_unit)}
                                             </div>
                                         </div>
@@ -591,14 +703,10 @@ export default function ValueEstimatorPage() {
                                     <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                                         <div className="text-xs text-gray-600">
                                             Resale:{" "}
-                                            <strong>
-                                                {currency(it.resale_value_per_unit)}
-                                            </strong>{" "}
-                                            / unit • Scrap:{" "}
-                                            <strong>
-                                                {currency(it.scrap_value_per_unit)}
-                                            </strong>{" "}
-                                            / unit
+                                            <strong>{currency(it.resale_value_per_unit)}</strong> /
+                                            unit • Scrap:{" "}
+                                            <strong>{currency(it.scrap_value_per_unit)}</strong> /
+                                            unit
                                         </div>
 
                                         <div className="flex items-center gap-2">
@@ -636,15 +744,49 @@ export default function ValueEstimatorPage() {
 
                             <button
                                 onClick={() => {
-                                    const price = Math.round(result.items[0]?.resale_value_per_unit || 0);
+                                    const firstItem = result.items?.[0];
+
+                                    const price =
+                                        Math.round(firstItem?.resale_value_per_unit || 0) ||
+                                        Math.round(
+                                            (result.total_min_value || 0) /
+                                            (form.quantity || 1)
+                                        );
+
+                                    const fallbackTitle = `${getCategoryLabel(
+                                        form.category
+                                    )} - Used Device`;
+
+                                    const title = classifiedLabel || fallbackTitle;
+
+                                    const categoryType = firstItem?.useResale
+                                        ? "reusable"
+                                        : "recyclable";
+
+                                    const finalDeviceCategory =
+                                        form.device_category === "Other" &&
+                                            form.custom_device_category.trim()
+                                            ? form.custom_device_category.trim()
+                                            : form.device_category;
+
                                     const listingData = {
-                                        title: classifiedLabel,
-                                        imageUrl: classifiedImage,
-                                        price: price,
+                                        title,
+                                        imageUrl: classifiedImage || null,
+                                        price,
                                         category: form.category,
+                                        categoryLabel: getCategoryLabel(form.category),
+                                        categoryType,
                                         condition: form.condition,
+                                        conditionLabel: getConditionLabel(form.condition),
+                                        brand: form.brand || "",
+                                        deviceCategory: finalDeviceCategory,
+                                        model: form.model || "",
                                     };
-                                    sessionStorage.setItem("prefillListing", JSON.stringify(listingData));
+
+                                    sessionStorage.setItem(
+                                        "prefillListing",
+                                        JSON.stringify(listingData)
+                                    );
                                     navigate("/create-listing");
                                 }}
                                 className="inline-block rounded-md px-4 py-2 text-sm bg-[#5a8807] text-white hover:bg-[#86c418]"
@@ -665,13 +807,15 @@ export default function ValueEstimatorPage() {
                                     age_years: 1,
                                     brand: "",
                                     quantity: 1,
+                                    device_category: "Smartphone",
+                                    custom_device_category: "",
+                                    model: "",
                                 });
                                 setResult(null);
                             }}
                         >
                             Clear Result
                         </button>
-
                     </section>
                 )}
             </div>

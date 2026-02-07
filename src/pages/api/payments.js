@@ -1,9 +1,12 @@
+// src/api/payments.js
 import apiClient from "./apiClient";
 
-export const createOrder = async ({ listingId, userEmail }) => {
+export const createRazorpayOrder = async ({ amount, email }) => {
     const res = await apiClient.post("/payments/create-order", {
-        listing_id: listingId,
-        user_email: userEmail,
+        amount, // in rupees (number)
+        currency: "INR",
+        receipt: `order_rcpt_${Date.now()}`,
+        notes: { email },
     });
-    return res.data; // { order_id, amount, message }
+    return res.data;
 };

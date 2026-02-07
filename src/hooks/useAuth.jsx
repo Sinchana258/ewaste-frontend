@@ -2,17 +2,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { setAuthToken } from "../utils/axiosInstance";
 
-/**
- * Auth shape:
- * { user: { id, fullName, email, phone }, token: string }
- *
- * Exposes:
- * - isLoggedIn (boolean)
- * - user (object|null)
- * - login({ access_token, user })
- * - logout()
- */
-
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {

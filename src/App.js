@@ -59,7 +59,7 @@ function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/not-found" element={<NotFoundPage />} />
-            <Route path="/recycle" element={<Recycle />} />
+            <Route path="/recycle" element={<SlotSchedulingPage />} />
             <Route path="/education" element={<Education />} />
             <Route path="/education/:id" element={<Blog />} />
 
@@ -68,7 +68,7 @@ function App() {
               path="/slot-scheduling"
               element={
                 <ProtectedRoute>
-                  <SlotSchedulingPage />
+                  <Recycle />
                 </ProtectedRoute>
               }
             />
