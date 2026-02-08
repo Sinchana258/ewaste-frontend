@@ -26,6 +26,7 @@ const SignUp = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -38,6 +39,15 @@ const SignUp = () => {
       toast.error("Please complete all required fields");
       return;
     }
+
+    // bcrypt has a hard 72-byte limit
+    const passwordBytes = new TextEncoder().encode(formData.password).length;
+
+    if (passwordBytes > 72) {
+      toast.error("Password too long (maximum 72 bytes)");
+      return;
+    }
+
 
     try {
       setIsSubmitting(true);
