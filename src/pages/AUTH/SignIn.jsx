@@ -56,6 +56,29 @@ const SignIn = () => {
       setIsSubmitting(false);
     }
   };
+  const handleGuestLogin = async () => {
+    try {
+      setIsSubmitting(true);
+
+      const res = await axios.post("/auth/login", {
+        email: "demo.user@gmail.com",
+        password: "#user@123",
+      });
+
+      const { access_token, user } = res.data;
+
+      login({ access_token, user });
+
+      toast.success("Logged in as Guest");
+      setTimeout(() => navigate("/"), 500);
+    } catch (err) {
+      console.error(err);
+      toast.error("Guest login failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-[#E2F0C9] flex items-center justify-center px-4">
@@ -102,6 +125,18 @@ const SignIn = () => {
             >
               {isSubmitting ? "Signing In..." : "Sign In"}
             </button>
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              disabled={isSubmitting}
+              className="w-full mt-3 border border-[#BBC863] text-[#8DA23F] py-2 rounded-lg font-semibold hover:bg-[#F5F7EB] transition disabled:opacity-60"
+            >
+              Continue as Guest
+            </button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Guest mode uses a demo account. No personal data required.
+            </p>
+
           </form>
         </div>
 
